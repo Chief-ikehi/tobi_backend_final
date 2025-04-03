@@ -1,0 +1,48 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pyc
+*.sqlite3
+*.log
+*.pot
+*.mo
+
+# Django
+db.sqlite3
+*.db
+media/
+staticfiles/
+.env
+
+# OS
+.DS_Store
+Thumbs.db
+
+# VSCode
+.vscode/
+
+# Virtualenv
+venv/
+env/
+ENV/
+.venv/
+
+# Coverage and testing
+htmlcov/
+coverage.xml
+*.cover
+*.py,cover
+.cache
+.tox/
+nosetests.xml
+test-results.xml
+junit.xml
+
+# Migrations (optional — keep if you want to track them)
+# **NOTE:** If you're still developing models, consider ignoring this
+# **BUT:** Remove these lines once you're ready to deploy and want consistent migrations
+# */migrations/
+# */migrations/*.py
+# */migrations/*.pyc

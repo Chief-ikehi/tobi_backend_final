@@ -1,0 +1,1 @@
+web: gunicorn tobi_backend.wsgi
