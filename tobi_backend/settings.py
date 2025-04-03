@@ -89,19 +89,8 @@ WSGI_APPLICATION = 'tobi_backend.wsgi.application'
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'tobi_db1',
-        'USER': 'tobi_user',
-        'PASSWORD': 'tobi_password',
-        'HOST': 'localhost',
-        'PORT': '5432',
-    }
-}
-
-DATABASES = {
     'default': dj_database_url.config(
-        default=os.getenv("DATABASE_URL", "postgres://tobi_user:tobi_password@localhost:5432/tobi_db1")
+        default=os.getenv("DATABASE_URL")
     )
 }
 
