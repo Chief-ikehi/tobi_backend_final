@@ -19,3 +19,7 @@ class IsAdmin(BasePermission):
 class IsSuperAdmin(BasePermission):
     def has_permission(self, request, view):
         return request.user and request.user.is_authenticated and request.user.role == 'superadmin'
+
+class IsHandyman(BasePermission):
+    def has_permission(self, request, view):
+        return request.user and request.user.is_authenticated and request.user.role == 'handyman'

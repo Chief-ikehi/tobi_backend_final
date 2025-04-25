@@ -5,7 +5,8 @@ from .models import (
     WithdrawalRequest, Gift, Investment, ROIPayout,
     PrivateMembership, Review, Notification, Favorite,
     InstallmentPayment, WalletTransaction,
-    PendingGift, PendingBooking, PendingInvestment
+    PendingGift, PendingBooking, PendingInvestment,
+    HandymanService, HandymanProfile, ServiceRequest
 )
 
 # === USER ADMIN ===
@@ -131,3 +132,23 @@ class PendingBookingAdmin(admin.ModelAdmin):
 @admin.register(PendingInvestment)
 class PendingInvestmentAdmin(admin.ModelAdmin):
     list_display = ('user', 'property', 'amount_invested', 'plan_years', 'is_paid', 'created_at')
+
+# === HANDYMAN SERVICE ===
+@admin.register(HandymanService)
+class HandymanServiceAdmin(admin.ModelAdmin):
+    list_display = ('name', 'created_at')
+    search_fields = ('name', 'description')
+
+# === HANDYMAN PROFILE ===
+@admin.register(HandymanProfile)
+class HandymanProfileAdmin(admin.ModelAdmin):
+    list_display = ('user', 'status', 'hourly_rate', 'experience_years', 'is_available')
+    list_filter = ('status', 'is_available')
+    search_fields = ('user__email', 'user__first_name', 'user__last_name')
+
+# === SERVICE REQUEST ===
+@admin.register(ServiceRequest)
+class ServiceRequestAdmin(admin.ModelAdmin):
+    list_display = ('customer', 'handyman', 'service', 'requested_date', 'status', 'payment_status')
+    list_filter = ('status', 'payment_status')
+    search_fields = ('customer__email', 'handyman__email', 'description')

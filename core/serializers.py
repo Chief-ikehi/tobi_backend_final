@@ -16,7 +16,10 @@ from .models import (
     Notification,
     Favorite,
     InstallmentPayment,
-    WalletTransaction
+    WalletTransaction,
+    HandymanService,
+    HandymanProfile,
+    ServiceRequest
 )
 
 class UserSerializer(serializers.ModelSerializer):
@@ -36,9 +39,9 @@ class RegisterSerializer(serializers.ModelSerializer):
         }
 
     def validate_role(self, value):
-        allowed_roles = ['customer', 'agent', 'investor']
+        allowed_roles = ['customer', 'agent', 'investor', 'handyman']
         if value not in allowed_roles:
-            raise serializers.ValidationError("You can only register as a customer, agent, or investor.")
+            raise serializers.ValidationError("You can only register as a customer, agent, investor, or handyman.")
         return value
 
     def create(self, validated_data):
@@ -190,3 +193,43 @@ class PublicUserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ['id', 'first_name', 'last_name', 'email', 'primary_phone', 'secondary_phone']
+
+
+class HandymanServiceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = HandymanService
+        fields = '__all__'
+
+
+class HandymanProfileSerializer(serializers.ModelSerializer):
+    user_email = serializers.EmailField(source='user.email', read_only=True)
+    user_name = serializers.SerializerMethodField()
+    services_list = serializers.SerializerMethodField()
+
+    class Meta:
+        model = HandymanProfile
+        fields = '__all__'
+        read_only_fields = ['user', 'status', 'submitted_at']
+
+    def get_user_name(self, obj):
+        return f"{obj.user.first_name} {obj.user.last_name}".strip()
+
+    def get_services_list(self, obj):
+        return HandymanServiceSerializer(obj.services.all(), many=True).data
+
+
+class ServiceRequestSerializer(serializers.ModelSerializer):
+    customer_name = serializers.SerializerMethodField()
+    handyman_name = serializers.SerializerMethodField()
+    service_name = serializers.CharField(source='service.name', read_only=True)
+
+    class Meta:
+        model = ServiceRequest
+        fields = '__all__'
+        read_only_fields = ['created_at', 'updated_at']
+
+    def get_customer_name(self, obj):
+        return f"{obj.customer.first_name} {obj.customer.last_name}".strip()
+
+    def get_handyman_name(self, obj):
+        return f"{obj.handyman.first_name} {obj.handyman.last_name}".strip()

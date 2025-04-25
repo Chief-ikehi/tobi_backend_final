@@ -88,11 +88,26 @@ WSGI_APPLICATION = 'tobi_backend.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
+
 DATABASES = {
     'default': dj_database_url.config(
         default=os.getenv("DATABASE_URL")
     )
 }
+'''
+
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'tobi_db3',
+        'USER': 'tobi_user',
+        'PASSWORD': 'tobi_password',
+        'HOST': 'localhost',  # or your DB host
+        'PORT': '5432',       # default PostgreSQL port
+    }
+}
+'''
+
 
 # Password validation
 # https://docs.djangoproject.com/en/5.1/ref/settings/#auth-password-validators

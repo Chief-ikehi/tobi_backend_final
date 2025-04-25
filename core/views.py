@@ -70,7 +70,10 @@ from .models import (
     WalletTransaction,
     PendingGift,
     PendingBooking,
-    PendingInvestment
+    PendingInvestment,
+    HandymanService,
+    HandymanProfile,
+    ServiceRequest
 )
 
 from .serializers import (
@@ -93,13 +96,17 @@ from .serializers import (
     WalletTransactionSerializer,
     UserProfileSerializer,
     ChangePasswordSerializer,
-    PublicUserSerializer
+    PublicUserSerializer,
+    HandymanServiceSerializer,
+    HandymanProfileSerializer,
+    ServiceRequestSerializer
 )
 
 from .permissions import (
     IsAgent,
     IsAdmin,
-    IsSuperAdmin
+    IsSuperAdmin,
+    IsHandyman
 )
 
 def get_tokens_for_user(user):
@@ -147,6 +154,7 @@ class ProfileView(generics.RetrieveAPIView):
             'customer': '/dashboard',
             'agent': '/dashboard',
             'investor': '/dashboard',
+            'handyman': '/dashboard',
             'admin': '/dashboard',
             'superadmin': '/dashboard'
         }
@@ -1307,7 +1315,7 @@ class SwitchRoleView(APIView):
         user = request.user
         new_role = request.data.get('role')
 
-        valid_roles = ['customer', 'agent', 'investor']
+        valid_roles = ['customer', 'agent', 'investor', 'handyman']
         if new_role not in valid_roles:
             raise ValidationError("Invalid role.")
 
@@ -1318,7 +1326,7 @@ class SwitchRoleView(APIView):
         user.role = new_role
         user.save()
 
-        # Check agent verification status if switching to agent
+        # Check verification status if switching to agent or handyman
         requires_verification = False
         if new_role == 'agent':
             try:
@@ -1326,6 +1334,13 @@ class SwitchRoleView(APIView):
                 if verification.status != 'verified':
                     requires_verification = True
             except AgentVerification.DoesNotExist:
+                requires_verification = True
+        elif new_role == 'handyman':
+            try:
+                profile = HandymanProfile.objects.get(user=user)
+                if profile.status != 'verified':
+                    requires_verification = True
+            except HandymanProfile.DoesNotExist:
                 requires_verification = True
 
         return Response({
@@ -1476,7 +1491,17 @@ class UserDashboardView(APIView):
 
         investment_tier = membership.tier if membership else None
 
-        return Response({
+        # Handyman data
+        handyman_profile = None
+        service_requests = []
+        if user.role == 'handyman':
+            try:
+                handyman_profile = HandymanProfile.objects.get(user=user)
+                service_requests = ServiceRequest.objects.filter(handyman=user).order_by('-created_at')
+            except HandymanProfile.DoesNotExist:
+                pass
+
+        response_data = {
             "user": {
                 "email": user.email,
                 "first_name": user.first_name,
@@ -1509,7 +1534,14 @@ class UserDashboardView(APIView):
                 "sent": GiftSerializer(sent_gifts, many=True).data,
                 "received": GiftSerializer(received_gifts, many=True).data
             }
-        })
+        }
+
+        # Add handyman data if applicable
+        if user.role == 'handyman':
+            response_data["handyman_profile"] = HandymanProfileSerializer(handyman_profile).data if handyman_profile else None
+            response_data["service_requests"] = ServiceRequestSerializer(service_requests, many=True).data
+
+        return Response(response_data)
 
 class UserProfileUpdateView(RetrieveUpdateAPIView):
     serializer_class = UserProfileSerializer
@@ -2042,4 +2074,138 @@ class VerifyInvestmentPaymentView(APIView):
             "plan_years": plan_years,
             "monthly_payment": round(monthly_payment, 2)
         })
+
+
+# ===== HANDYMAN SERVICES VIEWS =====
+
+class HandymanServiceListView(generics.ListCreateAPIView):
+    """View to list all handyman services or create a new one"""
+    queryset = HandymanService.objects.all()
+    serializer_class = HandymanServiceSerializer
+
+    def get_permissions(self):
+        if self.request.method == 'POST':
+            return [IsAdmin()]
+        return [permissions.AllowAny()]
+
+
+class HandymanVerificationView(generics.CreateAPIView):
+    """View for handymen to submit verification documents"""
+    serializer_class = HandymanProfileSerializer
+    permission_classes = [IsHandyman]
+
+    def post(self, request, *args, **kwargs):
+        if hasattr(request.user, 'handyman_profile'):
+            return Response({"detail": "You've already submitted verification."}, status=400)
+
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save(user=request.user, status='pending')
+        return Response(serializer.data, status=201)
+
+
+class HandymanVerificationStatusView(APIView):
+    """View to check handyman verification status"""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        try:
+            profile = HandymanProfile.objects.get(user=user)
+            return Response({
+                "status": profile.status  # unverified, pending, or verified
+            })
+        except HandymanProfile.DoesNotExist:
+            return Response({
+                "status": "unverified"
+            })
+
+
+class HandymanProfileView(generics.RetrieveUpdateAPIView):
+    """View to retrieve or update handyman profile"""
+    serializer_class = HandymanProfileSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_object(self):
+        try:
+            return HandymanProfile.objects.get(user=self.request.user)
+        except HandymanProfile.DoesNotExist:
+            raise ValidationError("Handyman profile not found.")
+
+
+class HandymanListView(generics.ListAPIView):
+    """View to list all verified handymen"""
+    serializer_class = HandymanProfileSerializer
+    permission_classes = [permissions.AllowAny]
+
+    def get_queryset(self):
+        queryset = HandymanProfile.objects.filter(status='verified', is_available=True)
+
+        # Filter by service if provided
+        service_id = self.request.query_params.get('service')
+        if service_id:
+            queryset = queryset.filter(services__id=service_id)
+
+        return queryset
+
+
+class ServiceRequestCreateView(generics.CreateAPIView):
+    """View for customers to create service requests"""
+    serializer_class = ServiceRequestSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def perform_create(self, serializer):
+        serializer.save(customer=self.request.user, status='pending')
+
+
+class ServiceRequestListView(generics.ListAPIView):
+    """View to list service requests for a user"""
+    serializer_class = ServiceRequestSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.role == 'handyman':
+            return ServiceRequest.objects.filter(handyman=user)
+        else:
+            return ServiceRequest.objects.filter(customer=user)
+
+
+class ServiceRequestDetailView(generics.RetrieveUpdateAPIView):
+    """View to retrieve or update a service request"""
+    serializer_class = ServiceRequestSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_object(self):
+        request_id = self.kwargs.get('request_id')
+        user = self.request.user
+
+        try:
+            if user.role == 'handyman':
+                return ServiceRequest.objects.get(id=request_id, handyman=user)
+            else:
+                return ServiceRequest.objects.get(id=request_id, customer=user)
+        except ServiceRequest.DoesNotExist:
+            raise ValidationError("Service request not found.")
+
+    def perform_update(self, serializer):
+        instance = serializer.instance
+        user = self.request.user
+
+        # Only handymen can update status to accepted, rejected, or completed
+        if user.role == 'handyman' and user == instance.handyman:
+            new_status = self.request.data.get('status')
+            if new_status in ['accepted', 'rejected', 'completed']:
+                serializer.save(status=new_status)
+            else:
+                serializer.save()
+        # Customers can only cancel their requests
+        elif user.role != 'handyman' and user == instance.customer:
+            new_status = self.request.data.get('status')
+            if new_status == 'cancelled':
+                serializer.save(status='cancelled')
+            else:
+                serializer.save()
+        else:
+            raise PermissionDenied("You don't have permission to update this request.")
 

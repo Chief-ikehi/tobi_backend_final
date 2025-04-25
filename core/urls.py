@@ -47,7 +47,16 @@ from .views import (
     VerifyBookingPaymentView,
     public_user_profile,
     InitiateInvestmentPaymentView,
-    VerifyInvestmentPaymentView
+    VerifyInvestmentPaymentView,
+    # Handyman services views
+    HandymanServiceListView,
+    HandymanVerificationView,
+    HandymanVerificationStatusView,
+    HandymanProfileView,
+    HandymanListView,
+    ServiceRequestCreateView,
+    ServiceRequestListView,
+    ServiceRequestDetailView
 )
 
 urlpatterns = [
@@ -98,5 +107,15 @@ urlpatterns = [
     path('users/<int:user_id>/', public_user_profile, name='public_user_profile'),
     path('invest/initiate-payment/', InitiateInvestmentPaymentView.as_view(), name='invest-initiate-payment'),
     path('invest/verify-payment/', VerifyInvestmentPaymentView.as_view(), name='invest-verify-payment'),
+
+    # Handyman services URLs
+    path('handyman-services/', HandymanServiceListView.as_view(), name='handyman-services'),
+    path('verify-handyman/', HandymanVerificationView.as_view(), name='verify-handyman'),
+    path('handyman/verification-status/', HandymanVerificationStatusView.as_view(), name='handyman-verification-status'),
+    path('handyman/profile/', HandymanProfileView.as_view(), name='handyman-profile'),
+    path('handymen/', HandymanListView.as_view(), name='handyman-list'),
+    path('service-requests/create/', ServiceRequestCreateView.as_view(), name='service-request-create'),
+    path('service-requests/', ServiceRequestListView.as_view(), name='service-request-list'),
+    path('service-requests/<int:request_id>/', ServiceRequestDetailView.as_view(), name='service-request-detail'),
 ]
 

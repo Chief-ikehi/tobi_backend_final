@@ -28,6 +28,7 @@ class User(AbstractBaseUser, PermissionsMixin):
         ('customer', 'Customer'),
         ('investor', 'Investor'),
         ('agent', 'Agent'),
+        ('handyman', 'Handyman'),
         ('admin', 'Admin'),
         ('superadmin', 'Superadmin'),
     ]
@@ -363,3 +364,83 @@ class PendingInvestment(models.Model):
 
     def __str__(self):
         return f"PendingInvestment({self.user.email} → {self.property.title})"
+
+class HandymanService(models.Model):
+    """Model to store different types of handyman services"""
+    name = models.CharField(max_length=100)
+    description = models.TextField(blank=True, null=True)
+    icon = models.CharField(max_length=50, blank=True, null=True, help_text="Icon class name (e.g., 'fa-wrench')")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.name
+
+    class Meta:
+        ordering = ['name']
+
+def handyman_directory_path(instance, filename):
+    """Function to determine upload path for handyman verification documents"""
+    return f'handymen/{instance.user.id}/{filename}'
+
+class HandymanProfile(models.Model):
+    """Model to store handyman profile information"""
+    STATUS_CHOICES = [
+        ('unverified', 'Unverified'),
+        ('pending', 'Pending Review'),
+        ('verified', 'Verified'),
+    ]
+
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='handyman_profile')
+    services = models.ManyToManyField(HandymanService, related_name='handymen')
+    bio = models.TextField(blank=True, null=True)
+    experience_years = models.PositiveIntegerField(default=0)
+    hourly_rate = models.DecimalField(max_digits=10, decimal_places=2)
+    is_available = models.BooleanField(default=True)
+
+    # Verification fields
+    valid_id = models.FileField(upload_to=handyman_directory_path, blank=True, null=True)
+    certification = models.FileField(upload_to=handyman_directory_path, blank=True, null=True)
+    proof_of_work = models.FileField(upload_to=handyman_directory_path, blank=True, null=True)
+
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='unverified')
+    submitted_at = models.DateTimeField(auto_now_add=True)
+
+    # Additional fields
+    service_area = models.CharField(max_length=100, blank=True, null=True)
+    profile_image = models.URLField(blank=True, null=True)
+
+    def __str__(self):
+        return f"HandymanProfile({self.user.email})"
+
+class ServiceRequest(models.Model):
+    """Model to store service requests from customers to handymen"""
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('accepted', 'Accepted'),
+        ('rejected', 'Rejected'),
+        ('completed', 'Completed'),
+        ('cancelled', 'Cancelled'),
+    ]
+
+    customer = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='service_requests')
+    handyman = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='service_jobs')
+    service = models.ForeignKey(HandymanService, on_delete=models.CASCADE)
+    property_booking = models.ForeignKey(Booking, on_delete=models.CASCADE, related_name='service_requests', null=True, blank=True)
+
+    description = models.TextField()
+    requested_date = models.DateField()
+    requested_time = models.TimeField()
+    estimated_hours = models.PositiveIntegerField(default=1)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+
+    total_cost = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    payment_status = models.CharField(max_length=20, choices=[('unpaid', 'Unpaid'), ('paid', 'Paid')], default='unpaid')
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"ServiceRequest({self.customer.email} → {self.handyman.email} for {self.service.name})"
+
+    class Meta:
+        ordering = ['-created_at']
